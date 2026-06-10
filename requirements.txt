@@ -1,0 +1,19 @@
+# 翻译摘要系统 - 依赖清单
+# 自然语言处理实践 课程设计
+
+# Web 框架
+flask>=3.0
+
+# 深度学习框架
+torch>=2.0
+transformers>=4.40
+sentencepiece>=0.2
+sacremoses>=0.1
+datasets>=2.0
+
+# 文档处理
+python-docx>=1.0
+
+# 其他 (通常已预装)
+numpy
+requests

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翻译摘要系统 - 自然语言处理实践课程设计</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh; color: #e0e0e0;
+        }
+        /* 顶部栏 */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 28px; background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 { font-size: 1.3em; color: #64b5f6; }
+        .student-info {
+            text-align: right; font-size: 0.9em; color: #aaa;
+            background: rgba(255,255,255,0.05); padding: 8px 16px;
+            border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .student-info span { display: block; line-height: 1.6; }
+        /* 主布局 */
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        /* 控制区 */
+        .controls {
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+            margin-bottom: 20px; padding: 16px;
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 0.95em; font-weight: 600;
+            transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary { background: #1565c0; color: white; }
+        .btn-primary:hover:not(:disabled) { background: #1976d2; transform: translateY(-1px); }
+        .btn-success { background: #2e7d32; color: white; }
+        .btn-success:hover:not(:disabled) { background: #388e3c; transform: translateY(-1px); }
+        .btn-warning { background: #e65100; color: white; }
+        .btn-warning:hover:not(:disabled) { background: #f57c00; transform: translateY(-1px); }
+        .btn-danger { background: #b71c1c; color: white; }
+        .btn-danger:hover:not(:disabled) { background: #d32f2f; transform: translateY(-1px); }
+        .btn-outline {
+            background: transparent; color: #64b5f6;
+            border: 1px solid #64b5f6;
+        }
+        .btn-outline:hover:not(:disabled) { background: rgba(100,181,246,0.1); }
+        /* 文件上传伪装 */
+        .file-upload { position: relative; display: inline-block; }
+        .file-upload input[type=file] {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer;
+        }
+        /* 状态栏 */
+        .status {
+            margin-left: auto; font-size: 0.85em; color: #81c784;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .status.error { color: #ef5350; }
+        .spinner {
+            width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #64b5f6; border-radius: 50%;
+            animation: spin 0.8s linear infinite; display: none;
+        }
+        .spinner.active { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* 文本区 */
+        .text-panels { display: flex; gap: 16px; margin-bottom: 20px; }
+        .text-panel {
+            flex: 1; min-width: 0;
+            background: rgba(255,255,255,0.03); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08); overflow: hidden;
+        }
+        .text-panel h3 {
+            padding: 12px 16px; font-size: 0.9em; color: #90caf9;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .text-panel h3 .badge {
+            font-size: 0.75em; padding: 2px 8px; border-radius: 10px;
+            margin-left: 8px; font-weight: normal;
+        }
+        .badge-cn { background: #e65100; color: white; }
+        .badge-en { background: #1565c0; color: white; }
+        .text-content {
+            padding: 14px 16px; height: 220px; overflow-y: auto;
+            font-size: 0.9em; line-height: 1.8; white-space: pre-wrap;
+            word-break: break-word; color: #ccc;
+        }
+        .text-content:empty::after {
+            content: "等待执行..."; color: #555; font-style: italic;
+        }
+        /* 方案结果区 */
+        .results-section { margin-bottom: 20px; }
+        .results-section h2 {
+            font-size: 1.1em; color: #64b5f6; margin-bottom: 12px;
+            padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .approach-cards { display: flex; gap: 16px; }
+        .approach-card {
+            flex: 1; min-width: 0;
+            background: rgba(255,255,255,0.03); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden; transition: border-color 0.3s;
+        }
+        .approach-card.active { border-color: #64b5f6; }
+        .approach-card h3 {
+            padding: 12px 16px; font-size: 0.9em;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .approach-card .card-body { padding: 12px 16px; }
+        .approach-card .card-body .step {
+            margin-bottom: 8px; font-size: 0.8em; color: #888;
+        }
+        .approach-card .card-body .step span { color: #aaa; }
+        .approach-card .card-body .output {
+            font-size: 0.85em; line-height: 1.6; color: #ccc;
+            max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .approach-card .card-body .output:empty::after {
+            content: "点击上方按钮执行方案"; color: #555; font-style: italic;
+        }
+        .char-count { font-size: 0.75em; color: #666; margin-top: 4px; }
+        /* 响应式 */
+        @media (max-width: 1000px) {
+            .approach-cards, .text-panels { flex-direction: column; }
+            .controls { justify-content: center; }
+            .status { margin-left: 0; width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== 顶部栏 ========== -->
+<div class="header">
+    <h1>📝 翻译摘要系统 — 自然语言处理实践课程设计</h1>
+    <div class="student-info">
+        <span>学号：2023413304</span>
+        <span>班级：23人工智能一</span>
+        <span>姓名：梁昊</span>
+    </div>
+</div>
+
+<div class="container">
+    <!-- ========== 控制按钮区 ========== -->
+    <div class="controls">
+        <div class="file-upload">
+            <button class="btn btn-primary">📂 选择文档</button>
+            <input type="file" id="fileInput" accept=".txt,.docx,.doc" onchange="uploadFile()">
+        </div>
+        <button class="btn btn-outline" onclick="loadHongLouMeng()" title="加载红楼梦测试段落">📖 加载红楼梦</button>
+        <span style="color:#666;font-size:0.85em;">或</span>
+        <button class="btn btn-warning" onclick="executeAll()" id="btnAll" disabled>▶ 执行全部方案</button>
+        <button class="btn btn-success" onclick="executeApproach(1)" id="btn1" disabled>方案1: 先摘要再翻译</button>
+        <button class="btn btn-success" onclick="executeApproach(2)" id="btn2" disabled>方案2: 先翻译再摘要</button>
+        <button class="btn btn-success" onclick="executeApproach(3)" id="btn3" disabled>方案3: 直接翻译摘要</button>
+        <a href="/api/exit" style="text-decoration:none;">
+            <button class="btn btn-danger">🚪 退出系统</button>
+        </a>
+        <div class="status" id="status">
+            <div class="spinner" id="spinner"></div>
+            <span id="statusText">就绪，请先加载文档</span>
+        </div>
+    </div>
+
+    <!-- ========== 文本显示区 ========== -->
+    <div class="text-panels">
+        <div class="text-panel">
+            <h3>📄 输入文本 (中文原文) <span class="badge badge-cn">CN</span></h3>
+            <div class="text-content" id="inputText"></div>
+            <div class="char-count" id="inputCount"></div>
+        </div>
+        <div class="text-panel">
+            <h3>📝 最终输出 (英文摘要) <span class="badge badge-en">EN</span></h3>
+            <div class="text-content" id="finalOutput"></div>
+            <div class="char-count" id="finalCount"></div>
+        </div>
+    </div>
+
+    <!-- ========== 三种方案结果对比 ========== -->
+    <div class="results-section">
+        <h2>📊 三种方案结果对比</h2>
+        <div class="approach-cards">
+            <!-- 方案1 -->
+            <div class="approach-card" id="card1">
+                <h3>🔵 方案1：先摘要再翻译</h3>
+                <div class="card-body">
+                    <div class="step">步骤1: 中文原文 → <span>中文摘要 (模型1)</span></div>
+                    <div class="step">步骤2: 中文摘要 → <span>英文翻译 (模型2)</span></div>
+                    <div class="output" id="output1"></div>
+                    <div class="char-count" id="count1"></div>
+                </div>
+            </div>
+            <!-- 方案2 -->
+            <div class="approach-card" id="card2">
+                <h3>🟢 方案2：先翻译再摘要</h3>
+                <div class="card-body">
+                    <div class="step">步骤1: 中文原文 → <span>英文翻译 (模型3)</span></div>
+                    <div class="step">步骤2: 英文翻译 → <span>英文摘要 (模型4)</span></div>
+                    <div class="output" id="output2"></div>
+                    <div class="char-count" id="count2"></div>
+                </div>
+            </div>
+            <!-- 方案3 -->
+            <div class="approach-card" id="card3">
+                <h3>🟣 方案3：单一模型直接翻译+摘要</h3>
+                <div class="card-body">
+                    <div class="step">模型5: 中文原文 → <span>英文摘要 (一步完成)</span></div>
+                    <div class="output" id="output3"></div>
+                    <div class="char-count" id="count3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ===================== 全局状态 =====================
+    let currentFilename = "";
+
+    // ===================== 工具函数 =====================
+    function $(id) { return document.getElementById(id); }
+
+    function setStatus(msg, isError) {
+        const el = $("statusText");
+        const div = $("status");
+        el.textContent = msg;
+        div.className = "status" + (isError ? " error" : "");
+    }
+
+    function showSpinner(show) {
+        $("spinner").className = "spinner" + (show ? " active" : "");
+    }
+
+    function enableButtons(enable) {
+        ["btn1", "btn2", "btn3", "btnAll"].forEach(id => {
+            $(id).disabled = !enable;
+        });
+    }
+
+    // 处理 fetch 响应
+    async function apiFetch(url, options) {
+        try {
+            const resp = await fetch(url, options);
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || "请求失败");
+            return data;
+        } catch (e) {
+            setStatus("错误: " + e.message, true);
+            throw e;
+        }
+    }
+
+    // ===================== 文件上传 =====================
+    async function uploadFile() {
+        const file = $("fileInput").files[0];
+        if (!file) return;
+
+        showSpinner(true);
+        setStatus("正在上传并解析文件...");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const data = await apiFetch("/api/upload", { method: "POST", body: formData });
+            currentFilename = data.filename;
+            $("inputText").textContent = data.preview;
+            $("inputCount").textContent = `提取 ${data.extracted_chars} 字符 (原文 ${data.total_chars} 字符)`;
+            $("finalOutput").textContent = "";
+            $("finalCount").textContent = "";
+            clearResults();
+            enableButtons(true);
+            setStatus(`✅ 已加载: ${data.filename} (${data.extracted_chars} 字符)`);
+        } catch (e) {
+            // 错误已在 apiFetch 中处理
+        }
+        showSpinner(false);
+    }
+
+    // ===================== 加载红楼梦 =====================
+    async function loadHongLouMeng() {
+        showSpinner(true);
+        setStatus("正在加载红楼梦测试段落...");
+
+        try {
+            const data = await apiFetch("/api/load_hongloumeng", { method: "POST" });
+            currentFilename = data.filename;
+            $("inputText").textContent = data.preview;
+            $("inputCount").textContent = `提取 ${data.extracted_chars} 字符 (原文 ${data.total_chars} 字符)`;
+            $("finalOutput").textContent = "";
+            $("finalCount").textContent = "";
+            clearResults();
+            enableButtons(true);
+            setStatus(`✅ 已加载: ${data.filename} (${data.extracted_chars} 字符)`);
+        } catch (e) {
+            // 错误已在 apiFetch 中处理
+        }
+        showSpinner(false);
+    }
+
+    // ===================== 执行方案 =====================
+    async function executeApproach(id) {
+        showSpinner(true);
+        setStatus(`正在执行方案${id}...`);
+
+        // 高亮当前卡片
+        [1, 2, 3].forEach(i => $("card" + i).className = "approach-card" + (i === id ? " active" : ""));
+
+        try {
+            const data = await apiFetch("/api/execute/" + id, { method: "POST" });
+            $("output" + id).textContent = data.final_result;
+            $("count" + id).textContent = `原文 ${data.original_length} 字符 → 结果 ${data.final_length} 字符`;
+
+            // 更新最终输出区 (显示最近执行的方案结果)
+            $("finalOutput").textContent = data.final_result;
+            $("finalCount").textContent = `[方案${id}] 原文 ${data.original_length} 字符 → 最终 ${data.final_length} 字符`;
+            setStatus(`✅ 方案${id} 执行完成`);
+        } catch (e) {
+            $("output" + id).textContent = "执行失败，请查看后端日志";
+            // 错误已在 apiFetch 中处理
+        }
+        showSpinner(false);
+    }
+
+    // ===================== 执行全部 =====================
+    async function executeAll() {
+        showSpinner(true);
+        setStatus("正在依次执行三种方案...");
+
+        // 高亮所有卡片
+        [1, 2, 3].forEach(i => $("card" + i).className = "approach-card active");
+
+        try {
+            const data = await apiFetch("/api/execute_all", { method: "POST" });
+            for (let i = 1; i <= 3; i++) {
+                const key = "approach_" + i;
+                if (data[key]) {
+                    if (data[key].error) {
+                        $("output" + i).textContent = "错误: " + data[key].error;
+                    } else {
+                        $("output" + i).textContent = data[key].final_result;
+                        $("count" + i).textContent =
+                            `原文 ${data[key].original_length} 字符 → 结果 ${data[key].final_length} 字符`;
+                    }
+                }
+            }
+            // 最终输出显示方案3结果
+            if (data.approach_3 && !data.approach_3.error) {
+                $("finalOutput").textContent = data.approach_3.final_result;
+                $("finalCount").textContent = `[方案3] 最终 ${data.approach_3.final_length} 字符`;
+            }
+            setStatus("✅ 三种方案全部执行完成");
+        } catch (e) {
+            // 错误已在 apiFetch 中处理
+        }
+        showSpinner(false);
+    }
+
+    function clearResults() {
+        for (let i = 1; i <= 3; i++) {
+            $("output" + i).textContent = "";
+            $("count" + i).textContent = "";
+            $("card" + i).className = "approach-card";
+        }
+    }
+</script>
+</body>
+</html>
